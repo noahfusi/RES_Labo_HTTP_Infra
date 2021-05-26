@@ -48,3 +48,6 @@ function generateWebIdentity() {
 	return identities;
 }
 ```
+## Step 3: Reverse proxy with apache (static configuration)
+
+/api/identities
