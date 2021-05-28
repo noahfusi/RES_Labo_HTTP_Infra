@@ -20,7 +20,7 @@ cas nous allons uniquement renseigné name, version, description, entry point (l
 
 Dans notre example nous voulons utiliser chance.js pour générer les informations à transmettre, pour ce faire nous allons lancer la commande ```npm install --save chance```. Nous avons également besoin d'Expresse.js pour la communication, nous alons alors utilisé cette commande ```npm install --save express```.
 
-Nous allons donc créer un fichier index.js qui est le point d'entrée de notre node. Dans ce fichier nous allons donc pouvoir utiliser expresse.js et chance.js. On vas utiliser .listen pour écoute surt le port 3000. On vas donc rechercher des connexions avec comme port celui demandé.
+Nous allons donc créer un fichier [index.js](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/fb-express-dynamic/docker-image/express-image/content/index.js) qui est le point d'entrée de notre node. Dans ce fichier nous allons donc pouvoir utiliser expresse.js et chance.js. On vas utiliser .listen pour écoute surt le port 3000. On vas donc rechercher des connexions avec comme port celui demandé.
 ```
 app.listen(3000, () => {
   console.log(`Accepting HTTP request on port 3000!`)
@@ -63,4 +63,26 @@ Une fois notre fichier compléter nous allons pouvoir build l'image. Nous nous d
 
 ## Step 3: Reverse proxy with apache (static configuration)
 
-/api/identities
+Dans cette partie nous voulons construire un reverse proxy pour accèder a notre server apache et à notre application web dynamic. Pour notre proxy nous allons utiliser des ip static pour faire la connexion, ce n'est pas tres robuste mais suffisant pour une demonstration. Dans létape 5 nous ferons un reverse proxy dynamic qui est beaucoup plus robuste.
+
+Pour commencer nous avons avons besoin comme toujours d'un [dockerfile](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/fb-apache-reverse-proxy/docker-image/apache-reverse-proxy/Dockerfile), pour ce proxis nous nous basons sur un serveur php pour le proxis et nous avons donce besoin d'une image ```FROM php:7.2-apache```. Ensuite nous copions le contenu de conf dans le docker ```COPY conf/ /etc/apache2```. Pour pouvoir utiliser le serveur apache comme proxy nous devons activer 2 modules avec la commande ```RUN a2enmod proxy proxy_http``` et pour finir nous devons activer le virtual host par défault et celui qu'on a créer avec la commande ```RUN a2ensite 000-* 001-*```.
+
+Dans [conf](https://github.com/noahfusi/RES_Labo_HTTP_Infra/tree/fb-apache-reverse-proxy/docker-image/apache-reverse-proxy/conf) nous devons créer un dossier "sites-available", ce dossier qui sera copier dans le docker contient le virtual host par [default](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/fb-apache-reverse-proxy/docker-image/apache-reverse-proxy/conf/sites-available/000-default.conf) et [celui](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/fb-apache-reverse-proxy/docker-image/apache-reverse-proxy/conf/sites-available/001-reverse-proxy.conf) qui nous permet d'accèder aux autre conteneurs.Le contenu du fichier créer est le suivant :
+
+```
+<VirtualHost *:80>
+	ServerName demo.res.ch
+	
+	#ErrorLog ${APACHE_LOG_DIR}/error.log
+	#CustomLog ${APACHE_LOG_DIR}access.log combined
+	
+	ProxyPass "/api/identities" "http://172.17.0.2:3000/"
+	ProxyPassReverse "/api/identities" "http://172.17.0.2:3000/"
+	
+	ProxyPass "/" "http://172.17.0.3:80/"
+	ProxyPassReverse "/" "http://172.17.0.3:80/"
+</VirtualHost>
+```
+
+On peut voir que l'on a défini le nom du serveur, en ce qui concerne les lignes en commentaires, l'image apache que l'on utilise ne pas à disposition la variable d'environnement "APACHE_LOG_DIR" donc voila pourqu'on on ne les utilises pas. Pour le mapping ce sont les commandes "ProxyPass" et "ProxyPassReverse" qui s'en occupe. On precise d'abors le préfix, il ne faut pas oublier les "/" sinon cela ne marche pas, vint ensuit la direction vers la machine dockers cible avec la même attention pour les "/". Nous avons 2 mapping, il faut impérativement que la plus spécifique s'execute en premier dans notre cas si la requete précise "/api/identities" le proxy va redirigé vers le docker de l'application web dynamique. Si la requête ne précise rien le proxy redirige vers le server apache.
+Comme pour toute les étape précédente il faut build le docker avec la commande ```docker build -t res/apache_rp .``` et on peut le lancer avec la commande ```docker run -p 9000:80 res/apache_rp```.
