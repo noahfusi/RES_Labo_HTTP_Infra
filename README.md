@@ -86,3 +86,34 @@ Dans [conf](https://github.com/noahfusi/RES_Labo_HTTP_Infra/tree/fb-apache-rever
 
 On peut voir que l'on a défini le nom du serveur, en ce qui concerne les lignes en commentaires, l'image apache que l'on utilise ne pas à disposition la variable d'environnement "APACHE_LOG_DIR" donc voila pourqu'on on ne les utilises pas. Pour le mapping ce sont les commandes "ProxyPass" et "ProxyPassReverse" qui s'en occupe. On precise d'abors le préfix, il ne faut pas oublier les "/" sinon cela ne marche pas, vint ensuit la direction vers la machine dockers cible avec la même attention pour les "/". Nous avons 2 mapping, il faut impérativement que la plus spécifique s'execute en premier dans notre cas si la requete précise "/api/identities" le proxy va redirigé vers le docker de l'application web dynamique. Si la requête ne précise rien le proxy redirige vers le server apache.
 Comme pour toute les étape précédente il faut build le docker avec la commande ```docker build -t res/apache_rp .``` et on peut le lancer avec la commande ```docker run -p 9000:80 res/apache_rp```.
+
+## Step 4: AJAX requests with JQuery
+
+Dans cette etape nous voulons utiliser la librairie JQuery pour envoyer des requêtes AJAX vers le [serveur dynamic](https://github.com/noahfusi/RES_Labo_HTTP_Infra/tree/ajax_jquery/docker-image/express-image) (celui s'occupe de générer des identitiés en JSON) pour mettre à jour le [server apache static](https://github.com/noahfusi/RES_Labo_HTTP_Infra/tree/ajax_jquery/docker-image/apache-php)
+
+Pour commencer nous allons modifier le fichier [index.html](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/ajax_jquery/docker-image/apache-php/content/index.html) qui se trouve dans le serveur apache static. Tout en bas de se fichier se trouve l'inlusion des ficheier javascript nous alors ajouter la ligne suivante.
+```
+<!-- Identities script-->
+<script src="js/identities.js"></script> 
+```
+Nous devons également definir qu'est ce qui vas être mis ajour grâce a AJAX. Dans notre cas nous avons rajouter cette dans [index.html](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/ajax_jquery/docker-image/apache-php/content/index.html) ```<h2 class="identities">ERROR !!!</h2>```, notre script modifie cette ligne et si il n'arrive pas le texte de base reste affiché.
+Maintenant que nous avons fait le lien avec le script il faut aller le créer, nous allons donc nous rendre dans le dossier js et créer le fichier [identities.js](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/ajax_jquery/docker-image/apache-php/content/js/identities.js) que nous allons ensuite editer avec le code suivant.
+
+```
+$(function() {
+	
+	function loadIdentities() {
+		$.getJSON( "/api/identities/", function ( identities ) {
+			var message = "Nobody is here";
+			if ( identities.length > 0) {
+				message = identities[0].email + " " + identities[0].pseudo;
+			}
+			$(".identities").text(message);
+		});
+	};
+	
+loadIdentities();
+setInterval( loadIdentities, 2000);
+});
+```
+Dans ce fichier nous avons mis a disposition une fonction qui permet de récupérer le json envoyer suite à une requete aux server dynamic. Il vas egalement modifier les élément de la classe "identities" pour afficher l'email et le pseudo. La seul occurence de cette classe est celle qu'on a défini plus tôt dans l'explication. Il ne faut egalement pas oublier de lancer la fonction. Nous avons pour finir fait en sorte que cette fonction soit executé toute les 2 secondes.
