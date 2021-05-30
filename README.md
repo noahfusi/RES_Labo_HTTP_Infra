@@ -117,3 +117,19 @@ setInterval( loadIdentities, 2000);
 });
 ```
 Dans ce fichier nous avons mis a disposition une fonction qui permet de récupérer le json envoyer suite à une requete aux server dynamic. Il vas egalement modifier les élément de la classe "identities" pour afficher l'email et le pseudo. La seul occurence de cette classe est celle qu'on a défini plus tôt dans l'explication. Il ne faut egalement pas oublier de lancer la fonction. Nous avons pour finir fait en sorte que cette fonction soit executé toute les 2 secondes.
+=======
+## Step 4:
+
+## Step 5:
+
+Dans cette partie nous voulons pouvoir spécifier dynamiquement les addresses ip des différents serveurs (c'est à dire sans devoir rebuild l'image Docker à chaque fois)
+Pour cela et pour les prochaines étapes (bonus), nous avons décidé de changer de reverse proxy et utilisons nginx
+
+Nginx utilisant des fichiers de configuration situés dans 
+```/etc/nginx```
+et 
+```/etc/nginx/conf.d ``` nous avons décidé de créer des fichiers ```static.conf``` et ```dynamic.conf``` dans ```etc/nginx/conf.d``` qui vont respectivement stocker les adresses ip des serveurs statiques et dynamiques.
+
+Pour pouvoir changer les ips, il faut donc modifier ces fichiers. Pour le réaliser nous profitons du fait que l'image Docker de nginx utilise un script ```docker-entrypoint.sh``` pour démarrer le service et
+l'avons modifié pour écricre les ips passées en variable d'environnement par Docker dans les fichiers ```static.conf``` et ```dynamic.conf```. 
+
