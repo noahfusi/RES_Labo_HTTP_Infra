@@ -9,6 +9,8 @@ Pour pouvoir utiliser cette image docker, il nous faut d'abors écrire un fichie
 
 Maintenant que nous avons tout préparé, il reste à construire notre image. Il suffit de se trouver dans le dossier courant de lancer la commande ``` docker build -t res/apache_php .```. Miantenant que nous avons notre image nous pouvons la lancer ``` docker run -p 9000:80 res/apache_php```, dans cette commande nous faison du port mapping pour ne pas avoir de conflit avec d'autrer programme.
 
+Pour verifier que cela marche correctement, il suffit d'ouvrir un navigateur et d'écrire "localhost:9000" dans la barre de recherche.
+
 ## Step 2: Dynamic HTTP server with express.js
 
 Dans cette partie nous voulons écrire une application web dynamic qui a retourner des donnés json dans notre cas. Pour notre cas nous allons utiliser node.js avec une [image](https://hub.docker.com/_/node) disponible sur dockerhub. Nous allons utliser la LTS qui est la dernière version stable de node.js.
@@ -61,6 +63,8 @@ function generateWebIdentity() {
 
 Une fois notre fichier compléter nous allons pouvoir build l'image. Nous nous déplacons dans le fichier courant et lancons la commande ```docker build -t res/express_identities .```, nous pouvons eusuite lancer l'image avec ```docker run res/express_identities```.
 
+Pour vérifier cette étape, on peut utiliser Postman qui nous permet d'envoyer des requests https. Il faut utiliser postman desktop car nous sommes en local sur notre machine. Dans cette requete GET, l'url ser ```localhost:3000/api/identities/``` et il ne faut pas oublier d'ajouter un headers Host avec comme valuer ```demo.res.ch```. Cette requete va nous retourner un json d'identités.
+
 ## Step 3: Reverse proxy with apache (static configuration)
 
 Dans cette partie nous voulons construire un reverse proxy pour accèder a notre server apache et à notre application web dynamic. Pour notre proxy nous allons utiliser des ip static pour faire la connexion, ce n'est pas tres robuste mais suffisant pour une demonstration. Dans létape 5 nous ferons un reverse proxy dynamic qui est beaucoup plus robuste.
@@ -86,6 +90,14 @@ Dans [conf](https://github.com/noahfusi/RES_Labo_HTTP_Infra/tree/fb-apache-rever
 
 On peut voir que l'on a défini le nom du serveur, en ce qui concerne les lignes en commentaires, l'image apache que l'on utilise ne pas à disposition la variable d'environnement "APACHE_LOG_DIR" donc voila pourqu'on on ne les utilises pas. Pour le mapping ce sont les commandes "ProxyPass" et "ProxyPassReverse" qui s'en occupe. On precise d'abors le préfix, il ne faut pas oublier les "/" sinon cela ne marche pas, vint ensuit la direction vers la machine dockers cible avec la même attention pour les "/". Nous avons 2 mapping, il faut impérativement que la plus spécifique s'execute en premier dans notre cas si la requete précise "/api/identities" le proxy va redirigé vers le docker de l'application web dynamique. Si la requête ne précise rien le proxy redirige vers le server apache.
 Comme pour toute les étape précédente il faut build le docker avec la commande ```docker build -t res/apache_rp .``` et on peut le lancer avec la commande ```docker run -p 9000:80 res/apache_rp```.
+
+Pour vérifier que notre revers proxy fonctionne bien nous pouvons utiliser curl qui est un autre outil pour envoyer des requêtes http. Une fois que tout nos dockers sont lancer et que l'ip de express et de apache correspond bien dans reverse proxy, nous pouvons utiliser la commande suivante ```curl -H "Host: demo.res.ch" http://localhost:9000/api/identities```.
+
+![image](https://user-images.githubusercontent.com/48253621/120103835-d1b8e800-c151-11eb-9a39-b69be7e5c2f5.png)
+On remarque que la requete retourne effectivement des objet json de nos identités. Nous pouvons aussi lancer la commande pour le serveur apache ```curl -H "Host: demo.res.ch" http://localhost:9000```
+
+![image](https://user-images.githubusercontent.com/48253621/120103889-1b093780-c152-11eb-9d4b-2e87828610ab.png)
+Cette commande nous retourne bien une page html. 
 
 ## Step 4: AJAX requests with JQuery
 
@@ -117,8 +129,6 @@ setInterval( loadIdentities, 2000);
 });
 ```
 Dans ce fichier nous avons mis a disposition une fonction qui permet de récupérer le json envoyer suite à une requete aux server dynamic. Il vas egalement modifier les élément de la classe "identities" pour afficher l'email et le pseudo. La seul occurence de cette classe est celle qu'on a défini plus tôt dans l'explication. Il ne faut egalement pas oublier de lancer la fonction. Nous avons pour finir fait en sorte que cette fonction soit executé toute les 2 secondes.
-=======
-## Step 4:
 
 ## Step 5:
 
