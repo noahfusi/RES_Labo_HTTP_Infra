@@ -201,14 +201,19 @@ dynamic_http:
     - traefik.http.services.dynamic.loadbalancer.server.port=3000
 ```
 
-### Démonstration :
-En utilisant la commande : docker-compose up -d --scale static_http=3 --scale dynamic_http=3, on spécifie que l'on désire 3 serveurs statiques et 3 serveurs dynamiques.
+#### Démonstration :
+En utilisant la commande : 
+```
+docker-compose up -d --scale static_http=3 --scale dynamic_http=3
+```
+
+On spécifie que l'on désire 3 serveurs statiques et 3 serveurs dynamiques.
 
 On peut ensuite voir dans l'interface web de traefik (port 8080) que il a bien créé deux services composés de 3 serveurs chacuns :
 
 ![http statique](images/load_balancing_demo.png?raw=true "Demo loadbalancer")
 
-Si on lance sans le -d, c'est à dire avec affichage, on peut observer les différents serveurs des load balancer en mode round-robin :
+Si on lance sans le -d, c'est à dire avec affichage, on peut observer les différents serveurs des load balancer en mode round-robin (mode par défaut):
 
 ![http dynamique](images/load_balancing_demo_dockerconsole_dynamic.png?raw=true "Demo loadbalancer")
 
@@ -218,4 +223,73 @@ On peut voir dans la première image que les serveur dynamiques se relaient pour
 
 On peut voir la même chose dans la deuxième image où l'on voit que les 3 serveurs ont répondu aux différentes requêtes (css, scripts etc ...)
 
+
+### Load balancing: round-robin vs sticky sessions
+
+Comme vu dans la partie précédente, les loadbalancer de traefik fonctionnent par défaut en mode round-robin
+
+Pour mettre en place la partie sticky session en utilisant des cookies pour la partie http statique, il suffit de rajouter un label :
+```
+- traefik.http.services.static.loadBalancer.sticky.cookie
+```
+
+#### Démonstration :
+Pour cette démonstration, nous allons simplement effectuer des refresh sur la page (localhost:80).
+
+![http statique sticky](images/load_balancing_sticky_demo_dockerconsole.png?raw=true "Demo loadbalancer")
+ 
+On peut voir dans l'image ci-dessus que lors du refresh, c'est le même serveur http statique qui nous a servi grâce au cookie stocké dans le navigateur.
+
+Pour pouvoir vérifier que c'est bien le cookie qui fonctionne et pas une mauvaise configuration, on peut lancer des requêtes via curl :
+
+```
+curl localhost
+```
+
+![http statique sticky](images/load_balancing_sticky_demo_dockerconsole_curl.png?raw=true "Demo loadbalancer")
+
+On peut voir ci-dessus que les différents serveurs statiques nous on servi à tour de rôle.
+
+
+### Dynamic cluster management :
+
+Pour cette partie, on utilise les capacités de traefik qui propose cette fonctionnalité.
+Pour l'implémenter, il n'y a rien à faire.
+
+#### Demonstration :
+Pour démontrer la capactié de gérer dynamiquement l'arrivée et le départ de serveurs, on lance 3 serveurs statiques et 3 servers dynamiques avec 
+```
+docker-compose up -d --scale static_http=3 --scale dynamic_http=3
+```
+
+![http statique](images/load_balancing_demo.png?raw=true "Demo loadbalancer")
+
+On va ensuite rajouter un serveur statique avec (sans -d pour pouvoir observer l'activité du serveur) :
+```
+docker-compose run static_http
+```
+![dynamic cluster add](images/dynamic_cluster_add_server.png?raw=true "Demo loadbalancer")
+
+On peut voir dans l'interface web de traefik que le nombre de serveur statiques est passé de 3 à 4.
+
+![dynamic cluster add](images/dynamic_cluster_add_server_log.png?raw=true "Demo loadbalancer")
+
+En lançant plusieurs requêtes via curl, on peut voir dans l'affichage du serveur que l'on a lancé qu'il répond bien aux requêtes
+
+Pour tester la suppression de servers, on va simplement kill 2 serveurs statiques avec :
+```
+docker kill nom_du_conteneur
+```
+![dynamic cluster add](images/dynamic_cluster_remove_server.png?raw=true "Demo loadbalancer")
+
+On voit que le nombre de serveurs est bien passé à 2. Si on lance des requêtes via curl (pour éviter le sticky cookie) :
+
+![dynamic cluster add](images/dynamic_cluster_remove_server.png?raw=true "Demo loadbalancer")
+
+On voit que le serveur static_http_1 a été kill et que les 2 autres se chargent des requêtes.
+
+
+
+
+ 
 
