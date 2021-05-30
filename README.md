@@ -1,6 +1,11 @@
 # RES_Labo_HTTP_Infra
 RES 2021 HTTP Infrastructure lab
 
+## Préambule
+
+Les liens présents dans cette documentation réfèrent aux images dans les différentes branches du projet.
+Pour faciliter la navigation, nous avons créé des dossiers correspondant à chaque étape, contenant également les fichiers nécessaires pour créer un conteneur Docker.
+
 ## Step 1: Static HTTP server with apache httpd
 
 Pour cette première étape nous voulons configuré un server apache http que nous allons "dockerisé" pour pouvoir servir du contenu static. Pour ce faire, nous allons utiliser cette image [php](https://hub.docker.com/_/php) disponible sur le site dockerhub qui regroupe les images dockers de la communauté. Cette image contient initaialement un serveur apache déja configuré ce qui est parfait dans notre cas.
@@ -71,7 +76,7 @@ Dans cette partie nous voulons construire un reverse proxy pour accèder a notre
 
 Pour commencer nous avons avons besoin comme toujours d'un [dockerfile](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/fb-apache-reverse-proxy/docker-image/apache-reverse-proxy/Dockerfile), pour ce proxis nous nous basons sur un serveur php pour le proxis et nous avons donce besoin d'une image ```FROM php:7.2-apache```. Ensuite nous copions le contenu de conf dans le docker ```COPY conf/ /etc/apache2```. Pour pouvoir utiliser le serveur apache comme proxy nous devons activer 2 modules avec la commande ```RUN a2enmod proxy proxy_http``` et pour finir nous devons activer le virtual host par défault et celui qu'on a créer avec la commande ```RUN a2ensite 000-* 001-*```.
 
-Dans [conf](https://github.com/noahfusi/RES_Labo_HTTP_Infra/tree/fb-apache-reverse-proxy/docker-image/apache-reverse-proxy/conf) nous devons créer un dossier "sites-available", ce dossier qui sera copier dans le docker contient le virtual host par [default](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/fb-apache-reverse-proxy/docker-image/apache-reverse-proxy/conf/sites-available/000-default.conf) et [celui](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/fb-apache-reverse-proxy/docker-image/apache-reverse-proxy/conf/sites-available/001-reverse-proxy.conf) qui nous permet d'accèder aux autre conteneurs.Le contenu du fichier créer est le suivant :
+Dans [conf](https://github.com/noahfusi/RES_Labo_HTTP_Infra/tree/fb-apache-reverse-proxy/docker-image/apache-reverse-proxy/conf) nous devons créer un dossier "sites-available", ce dossier qui sera copié dans le docker contient le virtual host par [default](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/fb-apache-reverse-proxy/docker-image/apache-reverse-proxy/conf/sites-available/000-default.conf) et [celui](https://github.com/noahfusi/RES_Labo_HTTP_Infra/blob/fb-apache-reverse-proxy/docker-image/apache-reverse-proxy/conf/sites-available/001-reverse-proxy.conf) qui nous permet d'accèder aux autre conteneurs. Le contenu du fichier créé est le suivant :
 
 ```
 <VirtualHost *:80>
@@ -133,15 +138,97 @@ Dans ce fichier nous avons mis a disposition une fonction qui permet de récupé
 ## Step 5:
 
 Dans cette partie nous voulons pouvoir spécifier dynamiquement les addresses ip des différents serveurs (c'est à dire sans devoir rebuild l'image Docker à chaque fois)
-Pour cela et pour les prochaines étapes (bonus), nous avons décidé de changer de reverse proxy et utilisons nginx
+Afin de réaliser cette étape, nous avons décidé d'utiliser nginx afin d'explorer un autre reverse proxy.
 
-Nginx utilisant des fichiers de configuration situés dans 
+Nginx offre les mêmes fonctionnalités que apache pour la fonction de reverse proxy. Il suffit simplement de spécifier la configuration dans les dossiers 
 ```/etc/nginx```
 et 
-```/etc/nginx/conf.d ``` nous avons décidé de créer des fichiers ```static.conf``` et ```dynamic.conf``` dans ```etc/nginx/conf.d``` qui vont respectivement stocker les adresses ip des serveurs statiques et dynamiques.
+```/etc/nginx/conf.d ``` 
+
+
+
+Nous avons décidé de créer les fichiers ```static.conf``` et ```dynamic.conf``` dans ```etc/nginx/conf.d``` qui vont respectivement stocker les adresses ip des serveurs statiques et dynamiques.
 
 Pour pouvoir changer les ips, il faut donc modifier ces fichiers. Pour le réaliser nous profitons du fait que l'image Docker de nginx utilise un script ```docker-entrypoint.sh``` pour démarrer le service et
-l'avons modifié pour écricre les ips passées en variable d'environnement par Docker dans les fichiers ```static.conf``` et ```dynamic.conf```. 
+l'avons modifié pour écrire les ips passées en variable d'environnement par Docker dans les fichiers ```static.conf``` et ```dynamic.conf```. 
+
+La configuration se fait très facilement :
+
+```
+user  nginx;
+worker_processes  auto;
+
+error_log  /var/log/nginx/error.log notice;
+pid        /var/run/nginx.pid;
+
+events {
+	worker_connections 4096;
+}
+
+http {
+
+	upstream static {
+		include conf.d/static.conf;
+	}
+
+	upstream dynamic {
+		include conf.d/dynamic.conf;
+	}
+
+	server {
+		listen 80;
+
+		location "/api/identities/" {
+
+			proxy_pass "http://dynamic/";
+
+		}
+
+		location / {
+
+			proxy_pass "http://static";
+
+		}
+
+	}	
+
+}
+```
+
+On déclare dans la partie http deux upstream qui représentent nos deux différents services. Chaque upstream inclus le fichier de configuration contenant ses serveurs.
+
+On déclare ensuite un serveur qui va écouter sur le port 80 et rediriger les requêtes ```api/identities``` vers le serveur http dynamique et le reste vers le serveur http statique
+
+On va donc créer un script nommé ```docker-entrypoint.sh``` contenant le script de base de l'image avec en plus le code permettant d'écrire dans les fichiers de configuration
+
+Les fichiers de configuration des différents services sont très simples, ils doivent simplement contenir :
+```
+server ip_du_serveur;
+```
+
+Ces fichiers seront générés par le script ```docker-entrypoint.sh```.
+
+Afin d'écrire les ips des serveurs passés en variable d'environnemnet, nous avons ajouté les lignes suivantes au début du script :
+
+```
+rm -f /etc/nginx/conf.d/static.conf
+rm -f /etc/nginx/conf.d/dynamic.conf
+touch /etc/nginx/conf.d/static.conf
+touch /etc/nginx/conf.d/dynamic.conf
+printf "server ${STATIC_IP};" >> /etc/nginx/conf.d/static.conf
+printf "server ${DYNAMIC_IP};" >> /etc/nginx/conf.d/dynamic.conf
+```
+
+Ces lignes vont supprimer les fichiers s'ils existent déjà et en créer de nouveaux avec les adresses ip passée en variable d'environnement STATIC_IP et DYNAMIC_IP.
+
+Pour pouvoir lancer le reverse proxy, il faut donc spécifier les ips dans la commande Docker, par exemple :
+
+```
+docker run -d -p 9000:80 -e STATIC_IP=172.17.0.2 -e DYNAMIC_IP=172.17.0.3:3000 nginx
+```
+Dans notre exemple, nous utilisons le serveur http statique de l'étape 4 et le serveur express.js de l'étape 3.
+
+On peut ensuite voir facilement si le reverse fonctionne correctement en se connectant à localhost depuis un navigateur ou en effectuant des requêtes vers ```localhost``` et ```localhost/api/identities/``` via curl`.
 
 ## Additional steps:
 
@@ -149,11 +236,13 @@ Pour cette partie, nous avons utilisé l'image Docker traefik:v2.4  pour sa simp
 Pour pouvoir lancer facilement plusieurs conteneurs (traefik, static http, express js ...) nous utilisons docker-compose.
 La totalité de la configuration se déroulera dans ce fichier docker-compose.yml à l'aide des labels.
 
+Il n'y aura pas de dossiers différents pour chaque étape, les modifications étant en général très mineures.
+
 ### Load balancing: multiple server nodes
 
 Afin de pouvoir utiliser traefik comme un reverse proxy supportant le load balancing, il faut lancer traefik avec quelques options minimales :
 
-* Les commandes permettant de configurer traefik pour utiliser le provider pour Docker, d'activer la dashboard, ainsi que déclarer un point d'entrée pour les requêtes
+* Les commandes permettant de configurer traefik pour utiliser le provider pour Docker, d'activer la dashboard de traefik, ainsi que de déclarer un point d'entrée pour les requêtes
     ```
     - "--api.insecure=true"
     - "--providers.docker=true"
@@ -168,11 +257,14 @@ Afin de pouvoir utiliser traefik comme un reverse proxy supportant le load balan
   - "8080:8080"
   ```
 
-* Mapper également le socket utilisé par l'API Docker :
+* Mapper également le socket utilisé par l'API Docker afin de permettre à Traefik de communiquer avec Docker :
   ```
   volumes:
   - /var/run/docker.sock:/var/run/docker.sock
   ```
+  
+* Le fichier docker-compose.yml utilisé est situé dans le dossier extra_steps 
+ 
   
 Il faudra ensuite spécifier certains labels pour les serveur http statiques et dynamiques :
  ```
