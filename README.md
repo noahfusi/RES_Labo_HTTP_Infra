@@ -201,3 +201,21 @@ dynamic_http:
     - traefik.http.services.dynamic.loadbalancer.server.port=3000
 ```
 
+### Démonstration :
+En utilisant la commande : docker-compose up -d --scale static_http=3 --scale dynamic_http=3, on spécifie que l'on désire 3 serveurs statiques et 3 serveurs dynamiques.
+
+On peut ensuite voir dans l'interface web de traefik (port 8080) que il a bien créé deux services composés de 3 serveurs chacuns :
+
+![http statique](images/load_balancing_demo.png?raw=true "Demo loadbalancer")
+
+Si on lance sans le -d, c'est à dire avec affichage, on peut observer les différents serveurs des load balancer en mode round-robin :
+
+![http dynamique](images/load_balancing_demo_dockerconsole_dynamic.png?raw=true "Demo loadbalancer")
+
+![http statique](images/load_balancing_demo_dockerconsole_static.png?raw=true "Demo loadbalancer")
+
+On peut voir dans la première image que les serveur dynamiques se relaient pour répondre aux requêtes.
+
+On peut voir la même chose dans la deuxième image où l'on voit que les 3 serveurs ont répondu aux différentes requêtes (css, scripts etc ...)
+
+
