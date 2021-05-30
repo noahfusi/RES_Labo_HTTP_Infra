@@ -1,0 +1,48 @@
+version: '3.3'
+
+services:
+    reverse-proxy:
+        restart: unless-stopped
+        image: traefik:v2.4
+        command:
+        - "--api.insecure=true"
+        - "--providers.docker=true"
+        - "--entrypoints.web.address=:80"
+        ports:
+        - "443:443"
+        - "80:80"
+        - "8080:8080"
+        volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+    
+    static_http:
+        restart: unless-stopped
+        image: jquery_static_http
+        labels:
+        - traefik.enable=true
+        - traefik.http.routers.static_http.rule=PathPrefix(`/`)
+        - traefik.http.routers.static_http.entryPoints=web
+        - traefik.http.routers.static_http.service=static
+        - traefil.http.routers.static_http.prority=1
+        - traefik.http.services.static.loadbalancer.server.port=80
+        - traefik.http.services.static.loadBalancer.sticky.cookie
+        
+    dynamic_http:
+        restart: unless-stopped
+        image: express_identities
+        labels:
+        - traefik.enable=true
+        - traefik.http.routers.dynamic_http.rule=Path(`/api/identities/`)
+        - traefik.http.middlewares.dynamic2.stripprefix.prefixes= /api/identities/
+        - traefik.http.routers.dynamic_http.entryPoints=web
+        - traefik.http.routers.dynamic_http.service=dynamic
+        - traefik.http.routers.dynamic_http.priority=100
+        - traefik.http.routers.dynamic_http.middlewares=dynamic2
+        - traefik.http.services.dynamic.loadbalancer.server.port=3000
+        
+    whoami:
+        # A container that exposes an API to show its IP address
+        image: traefik/whoami
+        labels:
+        - traefik.http.routers.whoami.rule=Path(`/test`)
+        - traefik.http.routers.whoami.priority=100

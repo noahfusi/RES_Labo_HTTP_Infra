@@ -86,3 +86,22 @@ Dans [conf](https://github.com/noahfusi/RES_Labo_HTTP_Infra/tree/fb-apache-rever
 
 On peut voir que l'on a défini le nom du serveur, en ce qui concerne les lignes en commentaires, l'image apache que l'on utilise ne pas à disposition la variable d'environnement "APACHE_LOG_DIR" donc voila pourqu'on on ne les utilises pas. Pour le mapping ce sont les commandes "ProxyPass" et "ProxyPassReverse" qui s'en occupe. On precise d'abors le préfix, il ne faut pas oublier les "/" sinon cela ne marche pas, vint ensuit la direction vers la machine dockers cible avec la même attention pour les "/". Nous avons 2 mapping, il faut impérativement que la plus spécifique s'execute en premier dans notre cas si la requete précise "/api/identities" le proxy va redirigé vers le docker de l'application web dynamique. Si la requête ne précise rien le proxy redirige vers le server apache.
 Comme pour toute les étape précédente il faut build le docker avec la commande ```docker build -t res/apache_rp .``` et on peut le lancer avec la commande ```docker run -p 9000:80 res/apache_rp```.
+
+## Step 4:
+
+## Step 5:
+
+Dans cette partie nous voulons pouvoir spécifier dynamiquement les addresses ip des différents serveurs (c'est à dire sans devoir rebuild l'image Docker à chaque fois)
+Pour cela et pour les prochaines étapes (bonus), nous avons décidé de changer de reverse proxy et utilisons nginx
+
+Nginx utilisant des fichiers de configuration situés dans 
+```/etc/nginx```
+et 
+```/etc/nginx/conf.d ``` nous avons décidé de créer des fichiers ```static.conf``` et ```dynamic.conf``` dans ```etc/nginx/conf.d``` qui vont respectivement stocker les adresses ip des serveurs statiques et dynamiques.
+
+Pour pouvoir changer les ips, il faut donc modifier ces fichiers. Pour le réaliser nous profitons du fait que l'image Docker de nginx utilise un script ```docker-entrypoint.sh``` pour démarrer le service et
+l'avons modifié pour écricre les ips passées en variable d'environnement par Docker dans les fichiers ```static.conf``` et ```dynamic.conf```. 
+
+
+
+
