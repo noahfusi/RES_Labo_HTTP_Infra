@@ -232,9 +232,11 @@ On peut ensuite voir facilement si le reverse fonctionne correctement en se conn
 
 ## Additional steps:
 
-Pour cette partie, nous avons utilisé l'image Docker traefik:v2.4  pour sa simplicité de configuration et d'utilisation avec Docker.
-Pour pouvoir lancer facilement plusieurs conteneurs (traefik, static http, express js ...) nous utilisons docker-compose.
+Pour cette partie, nous avons utilisé [traefik](https://doc.traefik.io/traefik/) pour sa simplicité de configuration et d'utilisation avec Docker. Nous utilisons l'image officielle [traefik:v2.4](https://hub.docker.com/_/traefik).
+Pour pouvoir lancer facilement plusieurs conteneurs (traefik, static http, express js ...) nous utilisons [docker-compose](https://docs.docker.com/compose/).
 La totalité de la configuration se déroulera dans ce fichier docker-compose.yml à l'aide des labels.
+
+Les serveurs http statiques et dynmiques sont ceux de l'étape 4 et de l'étape 3
 
 Il n'y aura pas de dossiers différents pour chaque étape, les modifications étant en général très mineures.
 
@@ -263,7 +265,7 @@ Afin de pouvoir utiliser traefik comme un reverse proxy supportant le load balan
   - /var/run/docker.sock:/var/run/docker.sock
   ```
   
-* Le fichier docker-compose.yml utilisé est situé dans le dossier extra_steps 
+* Le fichier docker-compose.yml utilisé est situé dans le dossier [extra_steps](https://github.com/noahfusi/RES_Labo_HTTP_Infra/tree/main/extra_steps/traefik/)
  
   
 Il faudra ensuite spécifier certains labels pour les serveur http statiques et dynamiques :
@@ -284,7 +286,7 @@ les 2 dernières déclarent le service "backend", ainsi que le numéro de port p
 Il faut faire attention à la manière dont le router "passe" les requêtes au backend, par exemple :
 
 Si on essaye d'accéder à localhost/abc/xyz/, le router va simplement passer la requête au service conceré, mais le chemin de la requête restera /abc/xyz/. Dans le cas où le service backend concerné attend une requête au root (/),
-il faut alors dire au router d'ajouter un traitement intermédiaire (middleware) à la requête qui va enlever le /abs/xyz/
+il faut alors dire au router d'ajouter un traitement intermédiaire (middleware) à la requête qui va enlever le /abc/xyz/
 
 Voici un exemple pour une requête localhost/api/identities/ où l'on enlève le /api/identities/ dans la requête :
 
@@ -309,9 +311,9 @@ En utilisant la commande :
 docker-compose up -d --scale static_http=3 --scale dynamic_http=3
 ```
 
-On spécifie que l'on désire 3 serveurs statiques et 3 serveurs dynamiques.
+On lance les différents conteneurs en précisant que l'on désire 3 serveurs http statiques et 3 serveurs http dynamiques
 
-On peut ensuite voir dans l'interface web de traefik (port 8080) que il a bien créé deux services composés de 3 serveurs chacuns :
+On peut ensuite voir dans l'interface web de traefik (localhost:8080) qu'il a bien créé deux services composés de 3 serveurs chacuns :
 
 ![http statique](images/load_balancing_demo.png?raw=true "Demo loadbalancer")
 
@@ -328,7 +330,7 @@ On peut voir la même chose dans la deuxième image où l'on voit que les 3 serv
 
 ### Load balancing: round-robin vs sticky sessions
 
-Comme vu dans la partie précédente, les loadbalancer de traefik fonctionnent par défaut en mode round-robin
+Comme vu dans la partie précédente, les loadbalancers de traefik fonctionnent par défaut en mode round-robin
 
 Pour mettre en place la partie sticky session en utilisant des cookies pour la partie http statique, il suffit de rajouter un label :
 ```
@@ -356,7 +358,7 @@ On peut voir ci-dessus que les différents serveurs statiques nous on servi à t
 ### Dynamic cluster management :
 
 Pour cette partie, on utilise les capacités de traefik qui propose cette fonctionnalité.
-Pour l'implémenter, il n'y a rien à faire.
+Pour l'implémenter, il n'y a rien à modifier.
 
 #### Demonstration :
 Pour démontrer la capactié de gérer dynamiquement l'arrivée et le départ de serveurs, on lance 3 serveurs statiques et 3 servers dynamiques avec 
@@ -378,7 +380,7 @@ On peut voir dans l'interface web de traefik que le nombre de serveur statiques 
 
 En lançant plusieurs requêtes via curl, on peut voir dans l'affichage du serveur que l'on a lancé qu'il répond bien aux requêtes
 
-Pour tester la suppression de servers, on va simplement kill 2 serveurs statiques avec :
+Pour tester la suppression de serveurs, on va simplement kill 2 serveurs statiques avec :
 ```
 docker kill nom_du_conteneur
 ```
@@ -386,7 +388,7 @@ docker kill nom_du_conteneur
 
 On voit que le nombre de serveurs est bien passé à 2. Si on lance des requêtes via curl (pour éviter le sticky cookie) :
 
-![dynamic cluster add](images/dynamic_cluster_remove_server.png?raw=true "Demo loadbalancer")
+![dynamic cluster add](images/dynamic_cluster_remove_server_log.png?raw=true "Demo loadbalancer")
 
 On voit que le serveur static_http_1 a été kill et que les 2 autres se chargent des requêtes.
 
