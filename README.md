@@ -133,3 +133,71 @@ et
 Pour pouvoir changer les ips, il faut donc modifier ces fichiers. Pour le réaliser nous profitons du fait que l'image Docker de nginx utilise un script ```docker-entrypoint.sh``` pour démarrer le service et
 l'avons modifié pour écricre les ips passées en variable d'environnement par Docker dans les fichiers ```static.conf``` et ```dynamic.conf```. 
 
+## Additional steps:
+
+Pour cette partie, nous avons utilisé l'image Docker traefik:v2.4  pour sa simplicité de configuration et d'utilisation avec Docker.
+Pour pouvoir lancer facilement plusieurs conteneurs (traefik, static http, express js ...) nous utilisons docker-compose.
+La totalité de la configuration se déroulera dans ce fichier docker-compose.yml à l'aide des labels.
+
+### Load balancing: multiple server nodes
+
+Afin de pouvoir utiliser traefik comme un reverse proxy supportant le load balancing, il faut lancer traefik avec quelques options minimales :
+
+* Les commandes permettant de configurer traefik pour utiliser le provider pour Docker, d'activer la dashboard, ainsi que déclarer un point d'entrée pour les requêtes
+    ```
+    - "--api.insecure=true"
+    - "--providers.docker=true"
+    - "--entrypoints.entryPoint_name.address=:80"
+    ```
+
+* Le mapping des différents ports (80, 443 et 8080) :
+    ```     
+  ports:
+  - "443:443"
+  - "80:80"
+  - "8080:8080"
+  ```
+
+* Mapper également le socket utilisé par l'API Docker :
+  ```
+  volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
+  ```
+  
+Il faudra ensuite spécifier certains labels pour les serveur http statiques et dynamiques :
+ ```
+- traefik.enable = true
+- traefik.http.routers.router_name.rule=Rule(`/`)
+- traefik.http.routers.router_name.entryPoints=entryPoint_name
+- traefik.http.routers.router_name.service=service_name
+- traefik.http.services.service_name.loadbalancer.server.port=num_port
+```
+
+La premiére ligne permet à traefik de détecter ce conteneur et ses options.
+
+Les 3 suivantes spécifient la régle de routage (host, path, pathprefix), le point d'entrée (port) ainsi que le service "backend"
+
+les 2 dernières déclarent le service "backend", ainsi que le numéro de port pour communiquer
+
+Il faut faire attention à la manière dont le router "passe" les requêtes au backend, par exemple :
+
+Si on essaye d'accéder à localhost/abc/xyz/, le router va simplement passer la requête au service conceré, mais le chemin de la requête restera /abc/xyz/. Dans le cas où le service backend concerné attend une requête au root (/),
+il faut alors dire au router d'ajouter un traitement intermédiaire (middleware) à la requête qui va enlever le /abs/xyz/
+
+Voici un exemple pour une requête localhost/api/identities/ où l'on enlève le /api/identities/ dans la requête :
+
+```
+dynamic_http:
+    restart: unless-stopped
+    image: express_identities
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.dynamic_http.rule=Path(`/api/identities/`)
+    - traefik.http.middlewares.dynamic2.stripprefix.prefixes= /api/identities/
+    - traefik.http.routers.dynamic_http.entryPoints=web
+    - traefik.http.routers.dynamic_http.service=dynamic
+    - traefik.http.routers.dynamic_http.priority=100
+    - traefik.http.routers.dynamic_http.middlewares=dynamic2
+    - traefik.http.services.dynamic.loadbalancer.server.port=3000
+```
+
