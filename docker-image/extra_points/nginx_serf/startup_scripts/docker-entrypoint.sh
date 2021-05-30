@@ -5,7 +5,7 @@ rm /etc/nginx/conf.d/dynamic.conf
 touch /etc/nginx/conf.d/static.conf
 touch /etc/nginx/conf.d/dynamic.conf
 printf "server ${STATIC_IP};" >> /etc/nginx/conf.d/static.conf
-printf "server ${DYNAMIC_IP}:3000;" >> /etc/nginx/conf.d/dynamic.conf
+printf "server ${DYNAMIC_IP};" >> /etc/nginx/conf.d/dynamic.conf
 
 for hook in $(ls /startup-hooks); do
   echo -n "Found startup hook ${hook} ... ";
