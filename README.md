@@ -219,6 +219,15 @@ printf "server ${STATIC_IP};" >> /etc/nginx/conf.d/static.conf
 printf "server ${DYNAMIC_IP};" >> /etc/nginx/conf.d/dynamic.conf
 ```
 
+Pour effectivement remplacer le script dans l'image de base, il faut donc simplement copier les fichiers au bon endroit dans le Dockerfile :
+
+```
+FROM nginx:1.21.0
+COPY config/ /etc/nginx/
+COPY startup_scripts/ /
+
+```
+
 Ces lignes vont supprimer les fichiers s'ils existent déjà et en créer de nouveaux avec les adresses ip passée en variable d'environnement STATIC_IP et DYNAMIC_IP.
 
 Pour pouvoir lancer le reverse proxy, il faut donc spécifier les ips dans la commande Docker, par exemple :
@@ -228,7 +237,9 @@ docker run -d -p 9000:80 -e STATIC_IP=172.17.0.2 -e DYNAMIC_IP=172.17.0.3:3000 n
 ```
 Dans notre exemple, nous utilisons le serveur http statique de l'étape 4 et le serveur express.js de l'étape 3.
 
-On peut ensuite voir facilement si le reverse fonctionne correctement en se connectant à localhost depuis un navigateur ou en effectuant des requêtes vers ```localhost``` et ```localhost/api/identities/``` via curl`.
+
+#### Démonstration
+On peut voir si le reverse fonctionne correctement en se connectant à localhost depuis un navigateur ou en effectuant des requêtes vers ```localhost``` et ```localhost/api/identities/``` via curl`.
 
 ## Additional steps:
 
